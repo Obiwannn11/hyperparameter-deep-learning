@@ -8,74 +8,66 @@ import io
 
 # 1. Inisialisasi Aplikasi Flask
 app = Flask(__name__)
-CORS(app)  # Mengizinkan Cross-Origin Resource Sharing
+CORS(app)
 
 # 2. Konfigurasi Model
-# Pastikan path ini benar sesuai struktur folder Anda
-MODEL_PATH = os.path.join('static', 'model_mobilenetv2.h5') 
-IMG_SIZE = 224
-# Sesuaikan urutan nama kelas ini persis seperti saat Anda melatih model
-CLASS_NAMES = ['sangat_bersih', 'sangat_kotor', 'sedang'] 
+# BARU: Path untuk dua model
+BEST_MODEL_PATH = os.path.join('static', 'best_model.h5') 
+WORST_MODEL_PATH = os.path.join('static', 'worst_model.h5') 
 
-# 3. Muat Model TensorFlow
+IMG_SIZE = 224
+CLASS_NAMES = ['bersih', 'kotor sedang', 'sangat kotor'] 
+
+# 3. Muat Kedua Model TensorFlow
 try:
-    model = tf.keras.models.load_model(MODEL_PATH)
-    print(f"Model {MODEL_PATH} berhasil dimuat.")
+    best_model = tf.keras.models.load_model(BEST_MODEL_PATH)
+    worst_model = tf.keras.models.load_model(WORST_MODEL_PATH) # BARU: Muat model kedua
+    print("Semua model berhasil dimuat.")
 except Exception as e:
     print(f"Error memuat model: {e}")
-    model = None
+    best_model = None
+    worst_model = None
 
-# 4. Fungsi untuk Pra-pemrosesan Gambar
+# 4. Fungsi untuk Pra-pemrosesan Gambar (tidak berubah)
 def preprocess_image(image_bytes):
-    """
-    Fungsi ini mengambil byte gambar, mengubah ukurannya, menormalkannya,
-    dan menyiapkannya untuk model.
-    """
-    img = Image.open(io.BytesIO(image_bytes)).convert('RGB') # Pastikan gambar dalam format RGB
+    img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
     img = img.resize((IMG_SIZE, IMG_SIZE))
     img_array = tf.keras.preprocessing.image.img_to_array(img)
-    img_array = img_array / 255.0  # Normalisasi piksel ke rentang [0, 1]
-    img_array = np.expand_dims(img_array, axis=0) # Tambah dimensi batch (1, 224, 224, 3)
+    img_array = img_array / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
 # 5. Definisikan Rute API untuk Prediksi
 @app.route('/predict', methods=['POST'])
 def predict():
-    if model is None:
-        return jsonify({'error': 'Model tidak berhasil dimuat'}), 500
+    if not best_model or not worst_model:
+        return jsonify({'error': 'Satu atau lebih model tidak berhasil dimuat'}), 500
         
-    # Cek apakah ada file yang dikirim dalam request
     if 'file' not in request.files:
         return jsonify({'error': 'Tidak ada file yang dikirim'}), 400
 
     file = request.files['file']
 
-    # Cek apakah file memiliki nama (artinya file benar-benar dipilih)
     if file.filename == '':
         return jsonify({'error': 'File tidak dipilih'}), 400
 
     try:
-        # Baca file gambar
         image_bytes = file.read()
-        print(f"File {file.filename} berhasil dibaca.")
-        
-        # Lakukan pra-pemrosesan
         processed_image = preprocess_image(image_bytes)
         
-        # Lakukan prediksi
-        prediction = model.predict(processed_image)
-        print(f"Prediksi berhasil dilakukan untuk {file.filename}.")
+        # BARU: Lakukan prediksi pada kedua model
+        prediction_best = best_model.predict(processed_image)
+        prediction_worst = worst_model.predict(processed_image)
         
-        # Dapatkan indeks kelas dengan probabilitas tertinggi
-        predicted_class_index = np.argmax(prediction)
-        print(f"Prediksi selesai untuk {file.filename}.")
+        # BARU: Dapatkan hasil untuk kedua model
+        result_best = CLASS_NAMES[np.argmax(prediction_best)]
+        result_worst = CLASS_NAMES[np.argmax(prediction_worst)]
         
-        # Dapatkan nama kelas dari indeks
-        predicted_class_name = CLASS_NAMES[predicted_class_index]
-        print(f"Prediksi selesai untuk {file.filename}.")
-        
-        # Kirim hasil sebagai JSON
-        return jsonify({'prediction': predicted_class_name})
+        # BARU: Kirim kedua hasil dalam satu JSON
+        return jsonify({
+            'best_prediction': result_best,
+            'worst_prediction': result_worst
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
