@@ -13,7 +13,7 @@ CORS(app)
 # 2. Konfigurasi Model
 # BARU: Path untuk dua model
 BEST_MODEL_PATH = os.path.join('static', 'best_model.h5') 
-WORST_MODEL_PATH = os.path.join('static', 'worst_model.h5') 
+WORST_MODEL_PATH = os.path.join('static', 'verybad_model.h5') 
 
 IMG_SIZE = 224
 CLASS_NAMES = ['bersih', 'kotor sedang', 'sangat kotor'] 
