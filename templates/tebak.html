@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bandingkan Model Kebersihan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card { max-width: 500px; margin: 2rem auto; border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        #imagePreview { max-width: 100%; max-height: 300px; border-radius: 0.375rem; display: none; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Aplikasi Model</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/">Tebak Gambar</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/bandingkan">Perbandingan Gambar</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+
+    <div class="container">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Bandingkan Model Prediksi</h2>
+                
+                <div class="mb-3">
+                    <label for="imageUpload" class="form-label">Pilih Gambar untuk Dideteksi:</label>
+                    <input class="form-control" type="file" id="imageUpload" accept="image/*">
+                </div>
+
+                <div class="mt-4 text-center">
+                    <img id="imagePreview" src="#" alt="Pratinjau Gambar">
+                </div>
+                
+                <div class="d-grid gap-2 mt-4">
+                    <button id="predictBtn" class="btn btn-primary" type="button" disabled>
+                        <span id="spinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                        <span id="btn-text">Prediksi Sekarang</span>
+                    </button>
+                </div>
+                
+                <div id="resultArea" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        const predictBtn = document.getElementById('predictBtn');
+        const resultArea = document.getElementById('resultArea');
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btn-text');
+
+        imageUpload.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(this.files[0]);
+                predictBtn.disabled = false;
+                resultArea.innerHTML = '';
+            }
+        });
+
+        predictBtn.addEventListener('click', async function() {
+            const file = imageUpload.files[0];
+            if (!file) return;
+
+            spinner.style.display = 'inline-block';
+            btnText.textContent = 'Memprediksi...';
+            predictBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/predict', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) throw new Error(`Error: ${response.statusText}`);
+
+                const data = await response.json();
+                // BARU: Panggil fungsi untuk menampilkan kedua hasil
+                displayResults(data.best_prediction, data.worst_prediction);
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultArea.innerHTML = `<div class="alert alert-danger">Tidak dapat terhubung ke server.</div>`;
+            } finally {
+                spinner.style.display = 'none';
+                btnText.textContent = 'Prediksi Sekarang';
+                predictBtn.disabled = false;
+            }
+        });
+
+        // BARU: Fungsi untuk mendapatkan kelas warna Alert Bootstrap
+        function getAlertClass(prediction) {
+            switch (prediction) {
+                case 'bersih': return 'alert-success';
+                case 'kotor sedang': return 'alert-warning';
+                case 'sangat kotor': return 'alert-danger';
+                default: return 'alert-secondary';
+            }
+        }
+
+        // BARU: Fungsi utama untuk menampilkan kedua hasil
+        function displayResults(bestPred, worstPred) {
+            const bestAlertClass = getAlertClass(bestPred);
+            const worstAlertClass = getAlertClass(worstPred);
+
+            // Buat HTML untuk kedua hasil
+            const resultsHTML = `
+                <div>
+                    <h5>Hasil Prediksi Model Terbaik</h5>
+                    <div class="alert ${bestAlertClass}" role="alert">
+                        <strong>${bestPred}</strong>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h5>Hasil Prediksi Model Terburuk</h5>
+                    <div class="alert ${worstAlertClass}" role="alert">
+                        <strong>${worstPred}</strong>
+                    </div>
+                </div>
+            `;
+            
+            resultArea.innerHTML = resultsHTML;
+        }
+    </script>
+</body>
+</html>

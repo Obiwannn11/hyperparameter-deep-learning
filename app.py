@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import tensorflow as tf
 from PIL import Image
@@ -71,6 +71,19 @@ def predict():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# BARU: Rute untuk halaman utama (Tebak Gambar)
+@app.route('/')
+def tebak_page():
+    # Mengambil file tebak.html dari folder templates
+    return render_template('tebak.html')
+
+# BARU: Rute untuk halaman Perbandingan Gambar
+@app.route('/bandingkan')
+def bandingkan_page():
+    # Mengambil file bandingkan.html dari folder templates
+    return render_template('bandingkan.html')
+
 
 # 6. Jalankan Aplikasi
 if __name__ == '__main__':
